@@ -1,0 +1,113 @@
+version: "3.9"
+
+services:
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "8001:8001"
+      - "8002:8002"
+      - "8003:8003"
+      - "8004:8004"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - php
+      - adminer
+    networks:
+      - internal
+      - public 
+
+  # graphs:
+  #   build: ./graphs
+  #   volumes:
+  #     - ./graphs/src:/app/src
+  #     - ./graphs/node_modules/:/app/node_modules
+  #   ports:
+  #     - "5173:5173"
+  #   expose:
+  #     - "5173"
+  #   networks:
+  #     - public
+  #     - internal
+
+  solid:
+    build: ./pipeline/
+    # entrypoint: ["/tmp/wait-for-it.sh", "php:8080", "--", "npx", "rdfc"]
+    command: /app/pipeline/auth-pipeline.ttl
+    depends_on:
+      - php
+    volumes:
+      - ./data/:/app/pipeline/ldes/
+      - ./pipeline/pipeline/:/app/pipeline/
+      - ./pipeline/lib/:/app/lib/
+      - ./pipeline/node_modules/:/app/node_modules/
+    environment:
+      DEBUG: rdfc
+      groupHistory: http://php/history.php?groups
+      userHistory: http://php/history.php?users
+    networks:
+      - internal
+      - public
+    expose:
+      - "3000"
+
+  pipeline:
+    build: ./pipeline/
+    # entrypoint: ["/tmp/wait-for-it.sh", "php:8080", "--", "npx", "rdfc"]
+    command: /app/pipeline/pipeline.ttl
+    depends_on:
+      - php
+    volumes:
+      - ./data/:/app/pipeline/ldes/
+      - ./pipeline/pipeline/:/app/pipeline/
+      - ./wait-for-it.sh:/tmp/wait-for-it.sh
+    environment:
+      DEBUG: rdfc
+      groupHistory: http://php/history.php?groups
+      userHistory: http://php/history.php?users
+      sensorHistory: http://php/history.php?sensors
+      dataHistory: http://php/history.php?data
+    networks:
+      - internal
+
+  # Dashboard containers
+  db:
+    image: mysql:8.0
+    # restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: example
+      MYSQL_DATABASE: mumo_test
+      MYSQL_USER: user
+      MYSQL_PASSWORD: userpass
+    expose:
+      - "3306"
+    volumes:
+      # - db_data:/var/lib/mysql
+      - ./dashboard/database.sql:/docker-entrypoint-initdb.d/database.sql
+    networks:
+      - internal
+
+  php:
+    build: ./dashboard/
+    depends_on:
+      - db
+    expose:
+      - "80"
+    volumes:
+      - ./dashboard/:/var/www/html
+      - ./settings.php:/var/www/html/settings.php
+    networks:
+      - internal
+
+  adminer:
+    image: adminer
+    # restart: always
+    expose:
+      - "8080"
+    networks:
+      - internal
+
+networks:
+  internal:
+    internal: true
+  public:
