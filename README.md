@@ -80,7 +80,7 @@ mumo-full/
 
 1. **Clone with submodules:**
 ```bash
-git clone --recursive <repository-url>
+git clone --recursive git@github.com:MuseumMonitoring/mumo-platform.git
 cd mumo-full
 git submodule update --init --recursive
 ```
